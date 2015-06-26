@@ -1,0 +1,134 @@
+#! /usr/bin/env perl
+
+#
+# passdb2sql: User::PassDB to sql conversion
+#
+# Hackish converter of User::PassDB to SQL (SQLite) - in progress
+#
+# todo:
+#
+#   - support proper gecos handling, or no?
+#     thinking no for now, since this is a 1:1 password file loader..
+#
+# $Id$
+#
+
+use strict;
+use warnings;
+
+use FindBin;
+use lib "$FindBin::Bin" . "/../lib";
+
+use User::PassDB;
+
+# sub predecls
+
+sub usage_exit;
+sub schema;
+sub convert;
+sub main;
+
+# subs
+
+sub usage_exit {
+	( my $app = $0 ) =~ s:.*/::;
+	print "usage: $app {schema [tblname]|convert uid.db [tblname]}\n";
+	exit 0;
+}
+
+sub schema {
+	my $tname = shift;
+	$tname = 'passwd' unless $tname;
+	while (<DATA>) {
+		s:_v7passwd_:$tname:g;
+		print;
+	}
+}
+
+sub convert {
+	my ($dbp,$tname) = @_;
+
+	$tname = 'passwd' unless $tname;
+
+	my $uiddb = User::PassDB->new($dbp)
+		or die "couldn't open uiddb $dbp: $!\n";
+
+	print "begin transaction;\n";
+
+	$uiddb->eachcb(sub {
+		my ($k,$v) = @_;
+
+		# dbm is keyed by both name_logname and uid_uidno..
+
+		$k =~ m:^(\w+)_(.*):;
+		return if $1 eq 'uid';
+
+		print "-- $2\n";
+	
+		# pw_name text,
+		# pw_passwd text,
+		# pw_uid integer,
+		# pw_gid integer,
+		# pw_gecos text,
+		# pw_dir text,
+		# pw_shell text,
+
+		print "insert into $tname values ("
+			. '"' . $v->name() . '",'
+			. '"' . $v->passwd() . '",'
+			. '"' . $v->uid() . '",'
+			. '"' . $v->gid() . '",'
+			. '"' . $v->gecos() . '",'
+			. '"' . $v->dir() . '",'
+			. '"' . $v->shell() . '"'
+		. ");\n";
+	});
+	print "commit;\n";
+
+}
+
+sub main {
+	my ($cmd,@args) = @_;
+
+	$cmd = 'default' unless $cmd;
+
+	if ($cmd eq 'schema') {
+		schema @args;
+		return 0;
+	}
+	if ($cmd eq 'convert') {
+		my ($db,$tname) = @args;
+		usage_exit unless $db;
+		convert $db, $tname;
+		return 0;
+	}
+
+	usage_exit;
+}
+
+exit main @ARGV;
+
+1;
+__DATA__
+
+--
+-- _v7passwd_:
+--
+-- a simple v7 /etc/passwd sqlite schema
+--
+-- keyed using pw_name since duplicate-uid accounts are often used for testing.
+--
+-- $Id$
+--
+
+create table if not exists _v7passwd_ (
+	pw_name text,
+	pw_passwd text,
+	pw_uid integer,
+	pw_gid integer,
+	pw_gecos text,
+	pw_dir text,
+	pw_shell text,
+	primary key (pw_name)
+);
+

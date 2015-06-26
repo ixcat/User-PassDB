@@ -1,0 +1,6 @@
+lib/User/PassDB.pm
+lib/User/PassDB/App.pm
+bin/passdb
+bin/passdb2sql
+MANIFEST
+Makefile.PL
