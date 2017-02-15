@@ -1,0 +1,16 @@
+
+This is User-PassDB, a perl passwd DBM k:v store -
+
+Stores getpwent() records into a dbm keyed by name_<logname> and uid_<uid>,
+useful for schlepping of user records between machines.
+
+installation:
+
+  perl Makefile.PL
+  make
+  make install
+
+usage:
+
+  run passdb command for synopsys.
+
